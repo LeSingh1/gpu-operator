@@ -4983,7 +4983,6 @@ func ServiceMonitor(n ClusterPolicyController) (gpuv1.State, error) {
 
 	if n.stateNames[state] == "state-dcgm-exporter" {
 		serviceMonitor := n.singleton.Spec.DCGMExporter.ServiceMonitor
-
 		// Check if ServiceMonitor is disabled and cleanup resource if exists
 		if serviceMonitor == nil || !serviceMonitor.IsEnabled() {
 			if !serviceMonitorCRDExists {
