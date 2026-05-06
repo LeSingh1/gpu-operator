@@ -19,7 +19,9 @@ package main
 import (
 	"context"
 	"os"
+	"syscall"
 	"testing"
+	"time"
 )
 
 func Test_isValidComponent(t *testing.T) {
@@ -214,5 +216,74 @@ UNKNOWN_FEATURE: true`,
 				}
 			}
 		})
+	}
+}
+
+func Test_validateFlags_standaloneSleep(t *testing.T) {
+	tests := []struct {
+		name      string
+		component string
+		sleep     bool
+		wantErr   bool
+	}{
+		{name: "no component, no sleep: error", wantErr: true},
+		{name: "no component, sleep: ok", sleep: true},
+		{name: "valid component, no sleep: ok", component: "driver"},
+		{name: "valid component, sleep: ok", component: "driver", sleep: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			origComponent, origSleep := componentFlag, sleepFlag
+			componentFlag, sleepFlag = tt.component, tt.sleep
+			defer func() {
+				componentFlag, sleepFlag = origComponent, origSleep
+			}()
+
+			_, err := validateFlags(context.Background(), nil)
+			if tt.wantErr && err == nil {
+				t.Errorf("validateFlags() expected error, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("validateFlags() unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func Test_runSleep_returnsOnSignal(t *testing.T) {
+	errCh := make(chan error, 1)
+	go func() { errCh <- runSleep(context.Background()) }()
+
+	// Give runSleep a moment to install its signal handler before sending.
+	time.Sleep(50 * time.Millisecond)
+	if err := syscall.Kill(syscall.Getpid(), syscall.SIGTERM); err != nil {
+		t.Fatalf("kill: %v", err)
+	}
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Errorf("runSleep returned error: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatalf("runSleep did not return within 2s of SIGTERM")
+	}
+}
+
+func Test_runSleep_contextCancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+	go func() { errCh <- runSleep(ctx) }()
+
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Errorf("runSleep returned error: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatalf("runSleep did not return within 2s of context cancel")
 	}
 }

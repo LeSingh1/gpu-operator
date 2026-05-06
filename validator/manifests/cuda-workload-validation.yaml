@@ -18,8 +18,7 @@ spec:
   - name: cuda-validation
     image: "FILLED_BY_THE_VALIDATOR"
     imagePullPolicy: IfNotPresent
-    command: ['sh', '-c']
-    args: ["vectorAdd"]
+    command: ["vectorAdd"]
     env:
     - name: NVIDIA_VISIBLE_DEVICES
       value: "all"
@@ -30,8 +29,8 @@ spec:
       image: "FILLED_BY_THE_VALIDATOR"
       imagePullPolicy: IfNotPresent
       # override command and args as validation is already done by initContainer
-      command: ['sh', '-c']
-      args: ["echo cuda workload validation is successful"]
+      command: ["nvidia-validator"]
+      args: ["--version"]
       securityContext:
         privileged: true
         readOnlyRootFilesystem: true

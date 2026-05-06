@@ -72,7 +72,7 @@ RUN curl -L https://codeload.github.com/NVIDIA/cuda-samples/tar.gz/refs/tags/v${
 
 # The C/C++ distroless image is used as a base since the CUDA vectorAdd
 # sample application depends on C/C++ libraries.
-FROM nvcr.io/nvidia/distroless/cc:v4.0.4-dev
+FROM nvcr.io/nvidia/distroless/cc:v4.0.4
 
 ENV NVIDIA_VISIBLE_DEVICES=void
 
@@ -92,6 +92,7 @@ WORKDIR /
 COPY --from=builder /workspace/gpu-operator /usr/bin/
 COPY --from=builder /workspace/manage-crds /usr/bin/
 COPY --from=builder /workspace/nvidia-validator /usr/bin/
+COPY --from=builder /workspace/rmglob /usr/bin/
 COPY --from=sample-builder /build/vectorAdd /usr/bin/vectorAdd
 ARG CUDA_SAMPLES_VERSION
 COPY --from=sample-builder /usr/local/cuda-${CUDA_SAMPLES_VERSION}/compat /usr/local/cuda/compat
@@ -99,8 +100,6 @@ COPY --from=sample-builder /usr/local/cuda-${CUDA_SAMPLES_VERSION}/compat /usr/l
 COPY assets /opt/gpu-operator/
 COPY manifests /opt/gpu-operator/manifests
 COPY validator/manifests /opt/validator/manifests
-
-COPY hack/must-gather.sh /usr/bin/gather
 
 # Add CRD resource into the image for helm upgrades
 COPY deployments/gpu-operator/crds/nvidia.com_clusterpolicies.yaml /opt/gpu-operator/nvidia.com_clusterpolicies.yaml

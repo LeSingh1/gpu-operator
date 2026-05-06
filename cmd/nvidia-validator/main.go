@@ -135,6 +135,7 @@ var (
 	hostRootFlag                  string
 	driverInstallDirFlag          string
 	driverInstallDirCtrPathFlag   string
+	sleepFlag                     bool
 )
 
 // defaultGPUWorkloadConfig is "vm-passthrough" unless
@@ -375,13 +376,16 @@ func main() {
 			Destination: &driverInstallDirCtrPathFlag,
 			Sources:     cli.EnvVars("DRIVER_INSTALL_DIR_CTR_PATH"),
 		},
+		&cli.BoolFlag{
+			Name:        "sleep",
+			Usage:       "after any other action, print the validator-success message and block until SIGTERM/SIGINT/SIGHUP, then exit 0",
+			Destination: &sleepFlag,
+			Sources:     cli.EnvVars("SLEEP"),
+		},
 	}
 
 	// Log version info
 	log.Infof("version: %s", c.Version)
-
-	// Handle signals
-	go handleSignal()
 
 	// invoke command
 	err := c.Run(context.Background(), os.Args)
@@ -404,6 +408,10 @@ func handleSignal() {
 
 func validateFlags(ctx context.Context, cli *cli.Command) (context.Context, error) {
 	if componentFlag == "" {
+		// Standalone --sleep mode does not require a component.
+		if sleepFlag {
+			return ctx, nil
+		}
 		return ctx, fmt.Errorf("invalid -c <component-name> flag: must not be empty string")
 	}
 	if !isValidComponent() {
@@ -509,24 +517,59 @@ func getWorkloadConfig(ctx context.Context) (string, error) {
 }
 
 func start(ctx context.Context, cli *cli.Command) error {
-	// if cleanup is requested, delete all existing status files(default)
-	if cleanupAllFlag {
-		// cleanup output directory and create again each time
-		err := os.RemoveAll(outputDirFlag)
-		if err != nil {
-			if !os.IsNotExist(err) {
-				return err
+	// In sleep mode, runSleep installs its own signal handler. Otherwise
+	// preserve legacy behavior: any signal terminates the process.
+	if !sleepFlag {
+		go handleSignal()
+	}
+
+	if componentFlag != "" {
+		// if cleanup is requested, delete all existing status files(default)
+		if cleanupAllFlag {
+			// cleanup output directory and create again each time
+			err := os.RemoveAll(outputDirFlag)
+			if err != nil {
+				if !os.IsNotExist(err) {
+					return err
+				}
 			}
+		}
+
+		// create status directory
+		err := os.Mkdir(outputDirFlag, 0755)
+		if err != nil && !os.IsExist(err) {
+			return err
+		}
+
+		if err := validateComponent(ctx, componentFlag); err != nil {
+			return err
 		}
 	}
 
-	// create status directory
-	err := os.Mkdir(outputDirFlag, 0755)
-	if err != nil && !os.IsExist(err) {
-		return err
+	if sleepFlag {
+		return runSleep(ctx)
 	}
+	return nil
+}
 
-	return validateComponent(ctx, componentFlag)
+// runSleep prints the validator-success message and blocks until a
+// termination signal arrives, then exits cleanly. Per-pod cleanup of
+// status markers is handled separately by the rmglob binary invoked
+// from `lifecycle.preStop`.
+func runSleep(ctx context.Context) error {
+	fmt.Println("all validations are successful")
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
+	defer signal.Stop(sigCh)
+
+	select {
+	case <-ctx.Done():
+		log.Infof("context canceled")
+	case s := <-sigCh:
+		log.Infof("received signal %s", s)
+	}
+	return nil
 }
 
 func validateComponent(ctx context.Context, componentFlag string) error {
@@ -1368,6 +1411,7 @@ func (p *Plugin) runWorkload() error {
 	if err != nil {
 		return err
 	}
+	fmt.Println("device-plugin workload validation is successful")
 	return nil
 }
 
@@ -1621,6 +1665,7 @@ func (c *CUDA) runWorkload() error {
 	if err != nil {
 		return err
 	}
+	fmt.Println("cuda workload validation is successful")
 	return nil
 }
 

@@ -28,8 +28,7 @@ spec:
       initContainers:
         - name: cc-manager-validation
           image: "FILLED BY THE OPERATOR"
-          command: ['sh', '-c']
-          args: ["nvidia-validator"]
+          command: ["nvidia-validator"]
           env:
             - name: WITH_WAIT
               value: "true"
@@ -49,8 +48,7 @@ spec:
               mountPropagation: Bidirectional
         - name: vfio-pci-validation
           image: "FILLED BY THE OPERATOR"
-          command: ['sh', '-c']
-          args: ["nvidia-validator"]
+          command: ["nvidia-validator"]
           env:
             - name: WITH_WAIT
               value: "true"
@@ -74,8 +72,7 @@ spec:
               mountPropagation: Bidirectional
         - name: vgpu-manager-validation
           image: "FILLED BY THE OPERATOR"
-          command: ['sh', '-c']
-          args: ["nvidia-validator"]
+          command: ["nvidia-validator"]
           env:
           - name: WITH_WAIT
             value: "true"
@@ -102,8 +99,7 @@ spec:
               mountPropagation: Bidirectional
         - name: vgpu-devices-validation
           image: "FILLED BY THE OPERATOR"
-          command: ['sh', '-c']
-          args: ["nvidia-validator"]
+          command: ["nvidia-validator"]
           env:
           - name: WITH_WAIT
             value: "true"
@@ -122,14 +118,14 @@ spec:
       containers:
         - image: "FILLED BY THE OPERATOR"
           name: nvidia-sandbox-validator
-          command: ['sh', '-c']
-          args: ["echo all validations are successful; while true; do sleep 86400; done"]
+          command: ["nvidia-validator"]
+          args: ["--sleep"]
           securityContext:
             privileged: true
           lifecycle:
             preStop:
               exec:
-                command: ["sh", "-c", "rm -f /run/nvidia/validations/*"]
+                command: ["/usr/bin/rmglob", "/run/nvidia/validations/*"]
           volumeMounts:
             - name: run-nvidia-validations
               mountPath: "/run/nvidia/validations"

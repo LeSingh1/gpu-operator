@@ -28,8 +28,7 @@ spec:
       initContainers:
         - name: driver-validation
           image: "FILLED BY THE OPERATOR"
-          command: ['sh', '-c']
-          args: ["nvidia-validator"]
+          command: ["nvidia-validator"]
           env:
             - name: WITH_WAIT
               value: "true"
@@ -58,8 +57,7 @@ spec:
               mountPath: /host-dev-char
         - name: toolkit-validation
           image: "FILLED BY THE OPERATOR"
-          command: ['sh', '-c']
-          args: ["nvidia-validator"]
+          command: ["nvidia-validator"]
           env:
           - name: NVIDIA_VISIBLE_DEVICES
             value: "all"
@@ -75,8 +73,7 @@ spec:
               mountPropagation: Bidirectional
         - name: cuda-validation
           image: "FILLED BY THE OPERATOR"
-          command: ['sh', '-c']
-          args: ["nvidia-validator"]
+          command: ["nvidia-validator"]
           env:
           - name: WITH_WAIT
             value: "false"
@@ -98,8 +95,7 @@ spec:
               mountPropagation: Bidirectional
         - name: plugin-validation
           image: "FILLED BY THE OPERATOR"
-          command: ['sh', '-c']
-          args: ["nvidia-validator"]
+          command: ["nvidia-validator"]
           env:
           - name: COMPONENT
             value: plugin
@@ -126,14 +122,14 @@ spec:
       containers:
         - image: "FILLED BY THE OPERATOR"
           name: nvidia-operator-validator
-          command: ['sh', '-c']
-          args: ["echo all validations are successful; while true; do sleep 86400; done"]
+          command: ["nvidia-validator"]
+          args: ["--sleep"]
           securityContext:
             privileged: true
           lifecycle:
             preStop:
               exec:
-                command: ["sh", "-c", "rm -f /run/nvidia/validations/*-ready"]
+                command: ["/usr/bin/rmglob", "/run/nvidia/validations/*-ready"]
           volumeMounts:
             - name: run-nvidia-validations
               mountPath: "/run/nvidia/validations"
